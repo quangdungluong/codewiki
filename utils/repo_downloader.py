@@ -1,7 +1,6 @@
 import os
 import subprocess
 import traceback
-from typing import str
 from urllib.parse import ParseResult, urlparse, urlunparse
 
 from utils.logger import logger
@@ -31,6 +30,7 @@ class RepoDownloader:
             )
             os.makedirs(self.local_path, exist_ok=True)
 
+            clone_url = self.repo_url
             if self.access_token:
                 logger.info(f"Cloning repository with access token")
                 parsed_url: ParseResult = urlparse(self.repo_url)
