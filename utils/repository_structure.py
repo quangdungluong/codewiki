@@ -4,7 +4,8 @@ import json
 import re
 import traceback
 import urllib.parse
-from typing import Any, Dict, Optional
+from dataclasses import asdict
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
@@ -15,7 +16,6 @@ import websockets
 from utils.constants import TARGET_SERVER_BASE_URL
 from utils.logger import logger
 from utils.models import WikiPage, WikiSection, WikiStructure
-from typing import List
 
 
 class RepositoryStructureFetcher:
@@ -190,7 +190,7 @@ class RepositoryStructureFetcher:
 
     async def determine_wiki_structure(self, file_tree_data: str, readme_content: str):
 
-        # instruction for creating eihter comprehensive or concise wiki structure
+        # instruction for creating either comprehensive or concise wiki structure
         try:
             # Define XML structure templates
             comprehensive_xml_format = """
@@ -506,6 +506,17 @@ IMPORTANT:
                     f"Content generation completed for {len(self.generated_pages)} pages."
                 )
 
+            data_to_cache = {
+                "owner": self.owner,
+                "repo": self.repo,
+                "repo_type": self.repo_info["type"],
+                "wiki_structure": asdict(self.wiki_structure),
+                "generated_pages": {
+                    page.id: asdict(page) for page in parsed_pages_list
+                },
+            }
+            await self._save_wiki_data_to_cache(data_to_cache)
+
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Error determining wiki structure: {e}")
@@ -691,5 +702,18 @@ Remember:
                     f"Finished generating content for page {page_id} - {page_title}"
                 )
 
-    async def _save_wiki_data_to_cache(self):
-        pass
+    async def _save_wiki_data_to_cache(self, data_to_cache):
+        try:
+            cache_url = f"{TARGET_SERVER_BASE_URL}/api/wiki_cache/"
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    cache_url,
+                    json=data_to_cache,
+                    headers={"Content-Type": "application/json"},
+                    timeout=30,
+                )
+                response.raise_for_status()
+                logger.info("Wiki data successfully saved to cache.")
+        except Exception as e:
+            traceback.print_exc()
+            logger.error(f"Error saving wiki data to cache: {e}")
