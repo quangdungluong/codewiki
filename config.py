@@ -154,3 +154,5 @@ DEFAULT_EXCLUDED_FILES: List[str] = [
     "packages/*/build",
     ".output",
 ]
+
+DEFAULT_GEMINI_MODEL = "gemini-2.0"
