@@ -94,8 +94,6 @@ class RecursiveDocumentReader:
             self.excluded_dirs = []
             self.excluded_files = []
             logger.info("Using inclusion mode")
-            logger.info(f"Included directories: {self.included_dirs}")
-            logger.info(f"Included files: {self.included_files}")
         else:
             self.excluded_dirs = list(
                 set(self.excluded_dirs) | set(DEFAULT_EXCLUDED_DIRS)
@@ -106,8 +104,6 @@ class RecursiveDocumentReader:
             self.included_dirs = []
             self.included_files = []
             logger.info("Using exclusion mode")
-            logger.info(f"Excluded directories: {self.excluded_dirs}")
-            logger.info(f"Excluded files: {self.excluded_files}")
 
         logger.info(f"Reading documents from {self.path}")
 

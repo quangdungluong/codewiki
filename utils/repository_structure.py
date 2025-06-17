@@ -146,9 +146,6 @@ class RepositoryStructureFetcher:
                         if item["type"] == "blob"
                     ]
                 )
-                logger.info(
-                    f"Fetched file tree data for {self.owner}/{self.repo}:\n{file_tree_data}"
-                )
 
                 # Try to fetch README.md content
                 try:
@@ -380,8 +377,6 @@ IMPORTANT:
                     f"Invalid XML structure returned: {e}. Response was: {response_text}"
                 )
 
-            logger.info(f"Parsed XML structure: {xml_text}")
-
             title = xml_root.findtext("title", default="")
             description = xml_root.findtext("description", default="")
 
@@ -485,7 +480,7 @@ IMPORTANT:
                 )
 
                 page_queue = asyncio.Queue()
-                for page_to_generate in parsed_pages_list[:1]:
+                for page_to_generate in parsed_pages_list:
                     await page_queue.put(page_to_generate)
 
                 worker_tasks = []

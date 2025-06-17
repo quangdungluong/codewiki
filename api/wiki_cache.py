@@ -10,7 +10,7 @@ from utils.logger import logger
 
 router = APIRouter(prefix="/api/wiki_cache", tags=["Wiki Cache"])
 
-WIKI_CACHE_DIR = os.path.join(get_adalflow_default_root_path(), "wiki_cache")
+WIKI_CACHE_DIR = os.path.join("./.cache", "wiki_cache")
 os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
 
 

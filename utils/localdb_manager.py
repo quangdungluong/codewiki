@@ -44,7 +44,7 @@ class LocalDBManager:
         """Create a repository with the given URL and access token."""
         logger.info(f"Preparing repo storage for {repo_url}")
         try:
-            root_path = get_adalflow_default_root_path()
+            root_path = "./.cache"
             if repo_url.startswith("https://") or repo_url.startswith("http://"):
                 repo_name = repo_url.split("/")[-1].replace(".git", "")
                 save_repo_path = os.path.join(root_path, "repos", repo_name)
