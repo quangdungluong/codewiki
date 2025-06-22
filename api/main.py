@@ -1,8 +1,10 @@
-import uvicorn
 import os
 import sys
-from utils.logger import logger
+
+import uvicorn
 from dotenv import load_dotenv
+
+from utils.logger import logger
 
 load_dotenv()
 
@@ -13,5 +15,5 @@ if __name__ == "__main__":
         "api.api:app",
         host="0.0.0.0",
         port=int(os.environ.get("PORT", 8001)),
-        reload=False,
+        reload=True,
     )

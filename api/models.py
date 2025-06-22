@@ -1,6 +1,11 @@
-from typing import List, Optional, Dict
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+
+def to_camel(string: str) -> str:
+    parts = string.split("_")
+    return parts[0] + "".join(word.capitalize() for word in parts[1:])
 
 
 class ChatMessage(BaseModel):
@@ -68,6 +73,10 @@ class WikiPage(BaseModel):
     importance: str
     related_pages: List[str]
 
+    class Config:
+        alias_generator = to_camel
+        populate_by_name = True
+
 
 class WikiStructureModel(BaseModel):
     """
@@ -99,3 +108,29 @@ class WikiCacheRequest(BaseModel):
     repo_type: str
     wiki_structure: WikiStructureModel
     generated_pages: Dict[str, WikiPage]
+
+
+class ProcessedProjectEntry(BaseModel):
+    id: str
+    owner: str
+    repo: str
+    name: str
+    repo_type: str
+    submitted_at: int  # timestampt
+    language: str
+
+
+class WikiTaskRequest(BaseModel):
+    owner: str
+    repo: str
+    repo_url: str
+    repo_info: Dict[str, Any]
+    token: Optional[str] = None
+
+
+class WikiTaskStatus(BaseModel):
+    status: str
+    message: str = ""
+    progress: Optional[set[str]] = None
+    error: Optional[str] = None
+    result: Optional[WikiCacheData] = None
