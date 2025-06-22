@@ -1,25 +1,25 @@
 'use client';
 
+import Markdown from '@/components/Markdown';
 import ThemeToggle from '@/components/theme-toggle';
+import WikiTreeView from '@/components/WikiTreeView';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { RepoInfo } from '@/types/repoInfo';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  FaBitbucket,
   FaBookOpen,
-  FaHome,
+  FaDownload,
   FaExclamationTriangle,
+  FaFileExport,
   FaFolder,
   FaGithub,
   FaGitlab,
-  FaBitbucket,
-  FaDownload,
-  FaFileExport,
+  FaHome,
   FaSync,
 } from 'react-icons/fa';
-import { useMemo, useState } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { RepoInfo } from '@/types/repoInfo';
-import WikiTreeView from '@/components/WikiTreeView';
-import Markdown from '@/components/Markdown';
 
 interface WikiSection {
   id: string;
@@ -100,11 +100,11 @@ export default function RepoWikiPage() {
   const repo = params.repo as string;
 
   const repoType = searchParams.get('type') || 'github';
-  const localPath = searchParams.get('local_path')
-    ? decodeURIComponent(searchParams.get('local_path') || '')
+  const localPath = searchParams.get('localPath')
+    ? decodeURIComponent(searchParams.get('localPath') || '')
     : undefined;
-  const repoUrl = searchParams.get('repo_url')
-    ? decodeURIComponent(searchParams.get('repo_url') || '')
+  const repoUrl = searchParams.get('repoUrl')
+    ? decodeURIComponent(searchParams.get('repoUrl') || '')
     : undefined;
   const language = searchParams.get('language') || 'en';
 
@@ -122,21 +122,29 @@ export default function RepoWikiPage() {
     [owner, repo, repoType, localPath, repoUrl]
   );
 
-  // Extract wiki structure
-  let title = '';
-  let description = '';
-  let pages: WikiPage[] = [];
-  const sections: WikiSection[] = [];
-  const rootSections: string[] = [];
+  // State variables
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState<string | undefined>(
+    messages.loading?.initializing || 'Initializing wiki generation...'
+  );
+  const [isExporting, setIsExporting] = useState(false);
+  const [pagesInProgress, setPagesInProgress] = useState(new Set<string>());
+  const [requestInProgress, setRequestInProgress] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [wikiStructure, setWikiStructure] = useState<
+    WikiStructure | undefined
+  >();
 
-  const wikiStructure: WikiStructure = {
-    id: 'wiki',
-    title,
-    description,
-    pages,
-    sections,
-    rootSections,
-  };
+  const [effectiveRepoInfo, setEffectiveRepoInfo] = useState(repoInfo); // Track effective repo info with cached data
+  const [isComprehensiveView, setIsComprehensiveView] = useState('');
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [generatedPages, setGeneratedPages] = useState<
+    Record<string, WikiPage>
+  >({});
+  const [currentPageId, setCurrentPageId] = useState<string | undefined>();
+  const [taskId, setTaskId] = useState<string | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const effectRan = React.useRef(false);
 
   const exportWiki = (format: 'markdown' | 'json') => {};
   const handlePageSelect = (pageId: string) => {
@@ -145,22 +153,146 @@ export default function RepoWikiPage() {
     }
   };
 
-  // State variables
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadingMessage, setLoadingMessage] = useState<string | undefined>(
-    messages.loading?.initializing || 'Initializing wiki generation...'
-  );
-  const [isExporting, setIsExporting] = useState(false);
-  const [pagesInProgress, setPagesInProgress] = useState(new Set<string>());
-  const [error, setError] = useState<string | null>(null);
-  const [effectiveRepoInfo, setEffectiveRepoInfo] = useState(repoInfo); // Track effective repo info with cached data
-  const [isComprehensiveView, setIsComprehensiveView] = useState('');
-  const [exportError, setExportError] = useState<string | null>(null);
-  const [generatedPages, setGeneratedPages] = useState<
-    Record<string, WikiPage>
-  >({});
-  const [currentPageId, setCurrentPageId] = useState<string | undefined>();
+  const startWikiGeneration = async () => {
+    if (requestInProgress) {
+      console.log('Reporitory processing already in progress.');
+      return;
+    }
 
+    setWikiStructure(undefined);
+    setCurrentPageId(undefined);
+    setGeneratedPages({});
+    setPagesInProgress(new Set());
+    setError(null);
+
+    try {
+      setRequestInProgress(true);
+      setIsLoading(true);
+      setLoadingMessage(
+        messages.loading?.initializing || 'Initializing wiki generation...'
+      );
+      const requestBody = {
+        owner: effectiveRepoInfo.owner,
+        repo: effectiveRepoInfo.repo,
+        repo_info: { type: effectiveRepoInfo.type },
+        repo_url: effectiveRepoInfo.repoUrl,
+        token: '',
+      };
+
+      const response = await fetch(`/api/wiki/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const pollStatus = async (id: string) => {
+        try {
+          const res = await fetch(`/api/wiki/status/${id}`);
+          const data = await res.json();
+          console.log('Wiki generation status:', data);
+          setLoadingMessage(data.message);
+          if (data.status === 'success' || data.error) {
+            if (intervalRef.current) {
+              console.log('Clearing interval');
+              clearInterval(intervalRef.current);
+            }
+            setIsLoading(false);
+            setLoadingMessage(undefined);
+          } else if (data.status === 'processing' && data.result) {
+            setWikiStructure(data.result.wiki_structure);
+            console.log('Progress:', new Set(data.progress));
+            setPagesInProgress(new Set(data.progress));
+          }
+        } catch (err) {
+          console.error('Error polling status:', err);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+          }
+        }
+      };
+
+      if (response.ok) {
+        const data = await response.json();
+        setTaskId(data.task_id);
+        pollStatus(data.task_id);
+        intervalRef.current = setInterval(() => pollStatus(data.task_id), 2000);
+      } else {
+        console.error(
+          'Error generating wiki:',
+          response.status,
+          await response.text()
+        );
+      }
+    } catch (error) {
+      console.error('Error starting wiki generation:', error);
+      setIsLoading(false);
+      setError(error instanceof Error ? error.message : 'Unknown error');
+      setLoadingMessage(undefined);
+    } finally {
+      setRequestInProgress(false);
+    }
+  };
+
+  useEffect(() => {
+    if (effectRan.current === false) {
+      effectRan.current = true;
+      const processRepo = async () => {
+        setLoadingMessage(
+          messages.loading?.initializing || 'Checking for cached wiki...'
+        );
+        try {
+          const params = new URLSearchParams({
+            owner: effectiveRepoInfo.owner,
+            repo: effectiveRepoInfo.repo,
+            repo_type: effectiveRepoInfo.type,
+          });
+          const response = await fetch(`/api/wiki_cache?${params.toString()}`);
+          if (response.ok) {
+            const cachedWiki = await response.json();
+            if (
+              cachedWiki &&
+              cachedWiki.wiki_structure &&
+              cachedWiki.generated_pages &&
+              Object.keys(cachedWiki.generated_pages).length > 0
+            ) {
+              console.log('Found cached wiki data in server.', cachedWiki);
+              const cachedStructure = {
+                ...cachedWiki.wiki_structure,
+                sections: cachedWiki.wiki_structure.sections || [],
+                rootSections: cachedWiki.wiki_structure.rootSections || [],
+              };
+
+              setWikiStructure(cachedStructure);
+              setGeneratedPages(cachedWiki.generated_pages);
+              setIsLoading(false);
+              setLoadingMessage(undefined);
+              return;
+            } else {
+              console.log('No valid wiki data in server.');
+            }
+          } else {
+            console.error(
+              'Error fetching cached wiki:',
+              response.status,
+              await response.text()
+            );
+          }
+        } catch (error) {
+          console.error('Error checking cached wiki:', error);
+        }
+
+        startWikiGeneration();
+      };
+      processRepo();
+    } else {
+      console.log('Skipping duplicate repository processing');
+    }
+  }, []);
+
+  console.log('generatedPages', generatedPages);
+  console.log('wikiStructure', wikiStructure);
   return (
     <div className='h-screen paper-texture p-4 md:p-8 flex flex-col'>
       <style>{wikiStyles}</style>

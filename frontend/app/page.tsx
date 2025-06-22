@@ -1,5 +1,6 @@
 'use client';
 
+import ProcessedProjects from '@/components/ProcessedProjects';
 import ThemeToggle from '@/components/theme-toggle';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useProcessedProjects } from '@/hooks/useProcessedProjects';
@@ -16,6 +17,7 @@ export default function Home() {
   const [repositoryInput, setRepositoryInput] = useState(
     'https://github.com/AsyncFuncAI/deepwiki-open'
   );
+  const [selectedPlatform, setSelectedPlatform] = useState<'github'>('github');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -48,7 +50,8 @@ export default function Home() {
     return key;
   };
 
-  const handleGenerateWiki = async () => {
+  const handleGenerateWiki = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (isSubmitting) {
       console.log('Already submitting');
       return;
@@ -65,14 +68,16 @@ export default function Home() {
 
     const { owner, repo, type, localPath } = parsedRepository;
     const params = new URLSearchParams();
-    params.append('type', type === 'local' ? 'local' : 'github');
+    params.append(
+      'type',
+      (type === 'local' ? type : selectedPlatform) || 'github'
+    );
     if (localPath) {
       params.append('localPath', localPath);
     } else {
       params.append('repoUrl', repositoryInput);
     }
     const queryString = params.toString() ? `?${params.toString()}` : '';
-
     router.push(`/${owner}/${repo}${queryString}`);
   };
 

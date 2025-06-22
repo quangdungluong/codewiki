@@ -1,58 +1,60 @@
-import { extractUrlPath } from "@/utils/urlDecoder";
+import { extractUrlPath } from '@/utils/urlDecoder';
 
 export default function parseRepoInput(input: string): {
-    owner: string;
-    repo: string;
-    type: string;
-    fullPath?: string;
-    localPath?: string;
+  owner: string;
+  repo: string;
+  type: string;
+  fullPath?: string;
+  localPath?: string;
 } | null {
-    input = input.trim();
+  input = input.trim();
 
-    let owner = '', repo = '', type = 'github', fullPath;
-    let localPath: string | undefined;
+  let owner = '',
+    repo = '',
+    type = 'github',
+    fullPath;
+  let localPath: string | undefined;
 
-    const windowsPathRegex = /^[a-zA-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*$/;
-    const customGitRegex = /^(?:https?:\/\/)?([^\/]+)\/(.+?)\/([^\/]+)(?:\.git)?\/?$/;
+  const windowsPathRegex =
+    /^[a-zA-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\)*[^\\/:*?"<>|\r\n]*$/;
+  const customGitRegex =
+    /^(?:https?:\/\/)?([^\/]+)\/(.+?)\/([^\/]+)(?:\.git)?\/?$/;
 
-    if (windowsPathRegex.test(input)) {
-        type = 'local';
-        localPath = input;
-        repo = input.split('\\').pop() || 'local-repo';
-        owner = 'local';
+  if (windowsPathRegex.test(input)) {
+    type = 'local';
+    localPath = input;
+    repo = input.split('\\').pop() || 'local-repo';
+    owner = 'local';
+  } else if (input.startsWith('/')) {
+    type = 'local';
+    localPath = input;
+    repo = input.split('/').filter(Boolean).pop() || 'local-repo';
+    owner = 'local';
+  } else if (customGitRegex.test(input)) {
+    type = 'web';
+    fullPath = extractUrlPath(input)?.replace(/\.git$/, '');
+    const parts = fullPath?.split('/') ?? [];
+    if (parts.length >= 2) {
+      repo = parts[parts.length - 1] || '';
+      owner = parts[parts.length - 2] || '';
     }
-    else if (input.startsWith('/')) {
-        type = 'local';
-        localPath = input;
-        repo = input.split('/').filter(Boolean).pop() || 'local-repo';
-        owner = 'local';
-    }
-    else if (customGitRegex.test(input)) {
-        type = 'web';
-        fullPath = extractUrlPath(input)?.replace(/\.git$/, '');
-        const parts = fullPath?.split('/') ?? [];
-        if (parts.length >= 2) {
-            owner = parts[parts.length - 1] || '';
-            repo = parts[parts.length - 2] || '';
-        }
-    }
-    else {
-        console.error('Invalid repository input:', input);
-        return null;
-    }
+  } else {
+    console.error('Invalid repository input:', input);
+    return null;
+  }
 
-    if (!owner || !repo) {
-        console.error('Owner or repo not found:', owner, repo);
-        return null;
-    }
+  if (!owner || !repo) {
+    console.error('Owner or repo not found:', owner, repo);
+    return null;
+  }
 
-    owner = owner.trim();
-    repo = repo.trim();
+  owner = owner.trim();
+  repo = repo.trim();
 
-    // Remove .git
-    if (repo.endsWith('.git')) {
-        repo = repo.slice(0, -4);
-    }
+  // Remove .git
+  if (repo.endsWith('.git')) {
+    repo = repo.slice(0, -4);
+  }
 
-    return { owner, repo, type, fullPath, localPath };
+  return { owner, repo, type, fullPath, localPath };
 }
