@@ -38,7 +38,7 @@ async def chat_completions_stream(request: ChatCompletionRequest):
                         f"Input too large: {tokens} tokens. Skipping request."
                     )
         try:
-            request_rag = RAG(provider="google", model="gemini-2.0-flash")
+            request_rag = RAG(provider="google", model="gemini-2.5-flash")
             request_rag.prepare_retriever(request.repo_url, "github")
         except Exception as e:
             traceback.print_exc()
@@ -164,7 +164,7 @@ This file contains...
 
         prompt += f"<query>\n{query}\n</query>\n\nAssistant: "
         model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
+            model_name="gemini-2.5-flash",
             generation_config={
                 "temperature": 0.7,
                 "top_p": 0.8,

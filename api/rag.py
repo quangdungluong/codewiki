@@ -1,16 +1,18 @@
+import traceback
+from dataclasses import dataclass, field
+from typing import List, Union
+from uuid import uuid4
+
 import adalflow
 import adalflow.core
-import traceback
-from utils.logger import logger
-from dataclasses import dataclass, field
-from uuid import uuid4
 from adalflow import GoogleGenAIClient, OllamaClient
-from utils.localdb_manager import LocalDBManager
 from adalflow.components.retriever.faiss_retriever import (
     FAISSRetriever,
     RetrieverOutput,
 )
-from typing import Union, List
+
+from utils.localdb_manager import LocalDBManager
+from utils.logger import logger
 
 
 @dataclass
@@ -213,7 +215,7 @@ IMPORTANT FORMATTING RULES:
             },
             model_client=GoogleGenAIClient(),
             model_kwargs={
-                "model": "gemini-2.0-flash",
+                "model": "gemini-2.5-flash",
                 "temperature": 0.7,
                 "top_p": 0.8,
                 "top_k": 40,

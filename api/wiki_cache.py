@@ -1,17 +1,14 @@
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from adalflow.utils import get_adalflow_default_root_path
 from fastapi import APIRouter, HTTPException
 
-from api.models import WikiCacheData, WikiCacheRequest, WikiPage, WikiStructureModel
+from api.models import WikiCacheData, WikiCacheRequest
+from utils.constants import WIKI_CACHE_DIR
 from utils.logger import logger
 
 router = APIRouter(prefix="/api/wiki_cache", tags=["Wiki Cache"])
-
-WIKI_CACHE_DIR = os.path.join("./.cache", "wiki_cache")
-os.makedirs(WIKI_CACHE_DIR, exist_ok=True)
 
 
 def get_wiki_cache_path(owner: str, repo: str, repo_type: str) -> str:
@@ -28,6 +25,7 @@ async def read_wiki_cache_data(
     """
     # This is a placeholder for actual data retrieval logic
     cache_path = get_wiki_cache_path(owner, repo, repo_type)
+    logger.info(f"Reading wiki cache data from {cache_path}")
     if os.path.exists(cache_path):
         try:
             with open(cache_path, "r", encoding="utf-8") as file:
@@ -54,7 +52,7 @@ async def write_wiki_cache_data(data: WikiCacheRequest) -> bool:
         return False
 
 
-@router.get("/", response_model=Optional[WikiCacheData])
+@router.get("", response_model=Optional[WikiCacheData])
 async def get_wiki_cache(
     owner: str, repo: str, repo_type: str
 ) -> Optional[WikiCacheData]:
@@ -69,7 +67,7 @@ async def get_wiki_cache(
         return None
 
 
-@router.post("/")
+@router.post("")
 async def update_wiki_cache(request_data: WikiCacheRequest) -> Dict[str, Any]:
     """
     Update the wiki cache data for a specific repository.

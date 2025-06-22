@@ -5,7 +5,7 @@ import re
 import traceback
 import urllib.parse
 from dataclasses import asdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import urlparse
 from xml.etree import ElementTree as ET
 
@@ -13,6 +13,7 @@ import httpx
 import requests
 import websockets
 
+from api.models import WikiCacheData, WikiStructureModel
 from utils.constants import TARGET_SERVER_BASE_URL
 from utils.logger import logger
 from utils.models import WikiPage, WikiSection, WikiStructure
@@ -39,7 +40,6 @@ class RepositoryStructureFetcher:
         self.pages_in_progress = set()
         self.error = None
         self.is_loading = False
-        self.loading_message = None
 
     def create_github_headers(self, token: Optional[str]) -> Dict[str, str]:
         headers = {"Accept": "application/vnd.github.v3+json"}
@@ -66,7 +66,11 @@ class RepositoryStructureFetcher:
         except:
             return "https://gitlab.com"
 
-    async def fetch_repository_structure(self):
+    async def fetch_repository_structure(
+        self,
+        update_task_status: Callable,
+        task_id: str,
+    ):
         # Reset previous state
         self.wiki_structure = None
         self.current_page_id = None
@@ -78,6 +82,9 @@ class RepositoryStructureFetcher:
             # Update loading state
             self.is_loading = True
             self.loading_message = "Fetching repository structure..."
+            update_task_status(
+                task_id, "processing", "Fetching repository structure..."
+            )
 
             file_tree_data = ""
             readme_content = ""
@@ -176,19 +183,29 @@ class RepositoryStructureFetcher:
                     )
 
             # Now determine the wiki structure
-            await self.determine_wiki_structure(file_tree_data, readme_content)
+            await self.determine_wiki_structure(
+                file_tree_data, readme_content, update_task_status, task_id
+            )
 
         except Exception as e:
             traceback.print_exc()
             logger.error(f"Error fetching repository structure: {e}")
             self.error = str(e) if e else "An unknown error occurred"
+            raise Exception(self.error)
         finally:
             self.request_in_progress = False
 
-    async def determine_wiki_structure(self, file_tree_data: str, readme_content: str):
+    async def determine_wiki_structure(
+        self,
+        file_tree_data: str,
+        readme_content: str,
+        update_task_status: Callable,
+        task_id: str,
+    ):
 
         # instruction for creating either comprehensive or concise wiki structure
         try:
+            update_task_status(task_id, "processing", "Determining wiki structure...")
             # Define XML structure templates
             comprehensive_xml_format = """
 <wiki_structure>
@@ -312,7 +329,7 @@ IMPORTANT:
                 "type": self.repo_info["type"],
                 "messages": [{"role": "user", "content": content_message}],
                 "repo_url": self.repo_url,
-                "model": "gemini-2.0-flash",
+                "model": "gemini-2.5-flash",
             }
             ws_base_url = TARGET_SERVER_BASE_URL.replace("http", "ws", 1)
             ws_url = f"{ws_base_url}/ws/chat"
@@ -466,6 +483,17 @@ IMPORTANT:
                 sections=parsed_sections_list,
                 rootSections=root_section_ids_list,
             )
+            update_task_status(
+                task_id,
+                "processing",
+                "Wiki structure determined successfully.",
+                WikiCacheData(
+                    wiki_structure=WikiStructureModel.model_validate(
+                        asdict(self.wiki_structure)
+                    ),
+                    generated_pages={},
+                ),
+            )
 
             logger.info(
                 f"Wiki structure determined successfully. Title: {title}, "
@@ -486,7 +514,9 @@ IMPORTANT:
                 worker_tasks = []
                 for i in range(1):
                     worker_task = asyncio.create_task(
-                        self._generate_page_content_for_structure(page_queue)
+                        self._generate_page_content_for_structure(
+                            page_queue, update_task_status, task_id
+                        )
                     )
                     worker_tasks.append(worker_task)
 
@@ -518,12 +548,16 @@ IMPORTANT:
             self.error = str(e) if e else "An unknown error occurred"
             return
 
-    async def _generate_page_content_for_structure(self, queue: asyncio.Queue):
+    async def _generate_page_content_for_structure(
+        self, queue: asyncio.Queue, update_task_status: Callable, task_id: str
+    ):
         while True:
             try:
                 page_data: WikiPage = await queue.get()
                 try:
-                    await self._generate_page_content(page_data)
+                    await self._generate_page_content(
+                        page_data, update_task_status, task_id
+                    )
                 except Exception as e:
                     traceback.print_exc()
                     if page_data.id in self.pages_in_progress:
@@ -541,7 +575,22 @@ IMPORTANT:
                 logger.error(f"Error in page content generation worker: {e}")
                 break
 
-    async def _generate_page_content(self, page_data: WikiPage):
+    async def _generate_page_content(
+        self, page_data: WikiPage, update_task_status: Callable, task_id: str
+    ):
+        update_task_status(
+            task_id,
+            "processing",
+            f"Generating content for {page_data.title}.",
+            WikiCacheData(
+                wiki_structure=WikiStructureModel.model_validate(
+                    asdict(self.wiki_structure)
+                ),
+                generated_pages={},
+            ),
+            self.pages_in_progress,
+        )
+
         page_id = page_data.id
         page_title = page_data.title
         try:
@@ -637,7 +686,7 @@ Remember:
                 "repo_url": repo_url,
                 "type": self.repo_info["type"],
                 "messages": [{"role": "user", "content": prompt_content}],
-                "model": "gemini-2.0-flash",
+                "model": "gemini-2.5-flash",
             }
             ws_base_url = TARGET_SERVER_BASE_URL.replace("http", "ws", 1)
             ws_url = f"{ws_base_url}/ws/chat"
@@ -670,16 +719,7 @@ Remember:
                     response.raise_for_status()
                     response_text = response.text
 
-            # Clean up markdown delimiters from the entire response
-            cleaned_content = re.sub(
-                r"^```markdown\s*",
-                "",
-                response_text.strip(),
-                flags=re.IGNORECASE | re.MULTILINE,
-            )
-            cleaned_content = re.sub(
-                r"```\s*$", "", cleaned_content, flags=re.IGNORECASE | re.MULTILINE
-            )
+            cleaned_content = response_text.strip()
             logger.info(
                 f"Cleaned content for page {page_id} - {page_title}: {cleaned_content[:50]}..."
             )
@@ -699,7 +739,7 @@ Remember:
 
     async def _save_wiki_data_to_cache(self, data_to_cache):
         try:
-            cache_url = f"{TARGET_SERVER_BASE_URL}/api/wiki_cache/"
+            cache_url = f"{TARGET_SERVER_BASE_URL}/api/wiki_cache"
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     cache_url,
