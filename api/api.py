@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.generate_diagram import router as generate_diagram_router
 from api.language_config import router as language_config_router
 from api.processed_projects import router as processed_projects_router
 from api.simple_chat import router as simple_chat_router
@@ -23,3 +24,4 @@ app.include_router(simple_chat_router)
 app.include_router(language_config_router)
 app.include_router(processed_projects_router)
 app.include_router(wiki_router)
+app.include_router(generate_diagram_router)
