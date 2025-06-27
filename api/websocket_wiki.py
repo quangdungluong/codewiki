@@ -2,13 +2,13 @@ import os
 import traceback
 from typing import Any, Dict, List
 
+import google.generativeai as genai
 from fastapi import WebSocket, WebSocketDisconnect
 
 from api.models import ChatCompletionRequest, ChatMessage
 from api.rag import RAG
 from utils.logger import logger
 from utils.token_utils import count_tokens
-import google.generativeai as genai
 
 google_api_key = os.environ.get("GOOGLE_API_KEY")
 
@@ -112,7 +112,7 @@ You are an expert code analyst examining the {repo_type} repository: {repo_url} 
 You provide direct, concise, and accurate information about code repositories.
 You NEVER start responses with markdown headers or code fences.
 IMPORTANT:You MUST respond in English language.
-</role> 
+</role>
 
 <guidelines>
 - Answer the user's question directly without ANY preamble or filler phrases
@@ -182,10 +182,6 @@ This file contains...
                 "top_k": 40,
             },
         )
-        # Save prompt to file for debugging
-        prompt_file = "debug_prompt.txt"
-        with open(prompt_file, "w") as f:
-            f.write(prompt)
 
         response = model.generate_content(prompt, stream=True)
         # Stream the response
