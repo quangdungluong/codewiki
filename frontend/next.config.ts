@@ -27,6 +27,10 @@ const nextConfig: NextConfig = {
         source: '/api/wiki/status/:path*',
         destination: `${TARGET_SERVER_BASE_URL}/api/wiki/status/:path*`,
       },
+      {
+        source: '/api/chat/stream',
+        destination: `${TARGET_SERVER_BASE_URL}/chat/completions/stream`,
+      },
     ];
   },
 };

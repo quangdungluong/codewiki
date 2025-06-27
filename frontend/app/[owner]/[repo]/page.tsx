@@ -8,10 +8,17 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { RepoInfo } from '@/types/repoInfo';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   FaBitbucket,
   FaBookOpen,
+  FaComments,
   FaDownload,
   FaExclamationTriangle,
   FaFileExport,
@@ -20,6 +27,7 @@ import {
   FaGitlab,
   FaHome,
   FaSync,
+  FaTimes,
 } from 'react-icons/fa';
 
 interface WikiSection {
@@ -136,7 +144,7 @@ export default function RepoWikiPage() {
     WikiStructure | undefined
   >();
 
-  const [effectiveRepoInfo, setEffectiveRepoInfo] = useState(repoInfo); // Track effective repo info with cached data
+  const [effectiveRepoInfo, setEffectiveRepoInfo] = useState(repoInfo);
   const [isComprehensiveView, setIsComprehensiveView] = useState('');
   const [exportError, setExportError] = useState<string | null>(null);
   const [generatedPages, setGeneratedPages] = useState<
@@ -146,6 +154,10 @@ export default function RepoWikiPage() {
   const [taskId, setTaskId] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const effectRan = React.useRef(false);
+  const [isAskModalOpen, setIsAskModalOpen] = useState(false);
+  const askComponentRef = useRef<{ clearConversation: () => void } | null>(
+    null
+  );
 
   const exportWiki = (format: 'markdown' | 'json') => {};
   const handlePageSelect = (pageId: string) => {
@@ -154,7 +166,7 @@ export default function RepoWikiPage() {
     }
   };
 
-  const startWikiGeneration = async () => {
+  const startWikiGeneration = useCallback(async () => {
     if (requestInProgress) {
       console.log('Reporitory processing already in progress.');
       return;
@@ -234,7 +246,14 @@ export default function RepoWikiPage() {
     } finally {
       setRequestInProgress(false);
     }
-  };
+  }, [
+    effectiveRepoInfo.owner,
+    effectiveRepoInfo.repo,
+    effectiveRepoInfo.type,
+    effectiveRepoInfo.repoUrl,
+    messages.loading,
+    requestInProgress,
+  ]);
 
   useEffect(() => {
     if (effectRan.current === false) {
@@ -290,10 +309,15 @@ export default function RepoWikiPage() {
     } else {
       console.log('Skipping duplicate repository processing');
     }
-  }, []);
+  }, [
+    effectiveRepoInfo,
+    effectiveRepoInfo.owner,
+    effectiveRepoInfo.repo,
+    effectiveRepoInfo.type,
+    messages.loading?.initializing,
+    startWikiGeneration,
+  ]);
 
-  console.log('generatedPages', generatedPages);
-  console.log('wikiStructure', wikiStructure);
   return (
     <div className='h-screen paper-texture p-4 md:p-8 flex flex-col'>
       <style>{wikiStyles}</style>
@@ -607,12 +631,51 @@ export default function RepoWikiPage() {
 
       <footer className='max-w-[90%] xl:max-w-[1400px] mx-auto mt-8 flex flex-col gap-4 w-full'>
         <div className='flex justify-between items-center gap-4 text-center text-[var(--muted)] text-sm h-fit w-full bg-[var(--card-bg)] rounded-lg p-3 shadow-sm border border-[var(--border-color)]'>
-          <div className='flex-1 overflow-y-auto'>
-            <Ask repoInfo={repoInfo} language={language} />
-          </div>
+          <p className='flex-1 font-serif'>
+            {messages.footer?.copyright ||
+              'DeepWiki - Generate Wiki from GitHub/Gitlab/Bitbucket repositories'}
+          </p>
           <ThemeToggle />
         </div>
       </footer>
+
+      {!isLoading && wikiStructure && (
+        <button
+          onClick={() => setIsAskModalOpen(true)}
+          className='fixed bottom-6 right-6 w-14 h-14 rounded-full bg-[var(--accent-primary)] text-white shadow-lg flex items-center justify-center hover:bg-[var(--accent-primary)]/90 transition-all z-50'
+          aria-label={messages.ask?.title || 'Ask about this repository'}
+        >
+          <FaComments className='text-xl' />
+        </button>
+      )}
+
+      <div
+        className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ${
+          isAskModalOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        <div className='bg-[var(--card-bg)] rounded-lg shadow-xl w-full max-w-3xl max-h-[80vh] flex flex-col'>
+          <div className='flex items-center justify-end p-3 absolute top-0 right-0 z-10'>
+            <button
+              onClick={() => {
+                // Just close the modal without clearing the conversation
+                setIsAskModalOpen(false);
+              }}
+              className='text-[var(--muted)] hover:text-[var(--foreground)] transition-colors bg-[var(--card-bg)]/80 rounded-full p-2'
+              aria-label='Close'
+            >
+              <FaTimes className='text-xl' />
+            </button>
+          </div>
+          <div className='flex-1 overflow-y-auto p-4'>
+            <Ask
+              repoInfo={effectiveRepoInfo}
+              language={language}
+              onRef={(ref) => (askComponentRef.current = ref)}
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
