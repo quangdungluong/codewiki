@@ -5,6 +5,7 @@ from google import genai
 from google.genai import types
 
 from utils.format_message import format_message
+from utils.logger import logger
 
 
 class GeminiService:
@@ -16,15 +17,16 @@ class GeminiService:
         self, system_prompt: str, data: dict
     ) -> AsyncGenerator[str, None]:
         user_message = format_message(data)
-        try:
-            async for chunk in await self.client.aio.models.generate_content_stream(
-                model=self.model,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    max_output_tokens=12000,
-                ),
-                contents=user_message,
-            ):
+        response = await self.client.aio.models.generate_content_stream(
+            model=self.model,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                response_mime_type="application/json",
+                max_output_tokens=12000,
+            ),
+            contents=user_message,
+        )
+
+        async for chunk in response:
+            if chunk.text is not None:
                 yield chunk.text
-        except Exception as e:
-            raise (e)

@@ -1,17 +1,22 @@
+import asyncio
 import json
+import os
 import re
+import traceback
 from functools import lru_cache
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from api.models import DiagramRequest
+from api.models import DiagramCacheData, DiagramRequest
 from api.services.gemini_service import GeminiService
 from api.services.github_service import GithubService
+from utils.constants import DIAGRAM_CACHE_DIR
+from utils.logger import logger
 from utils.prompts import SYSTEM_SECOND_PROMPT, SYSTEM_THIRD_PROMPT
 
-router = APIRouter(prefix="/diagram")
+router = APIRouter(prefix="/api/diagram")
 
 gemini_service = GeminiService()
 
@@ -44,6 +49,60 @@ def process_click_events(diagram: str, owner: str, repo: str, branch: str) -> st
     return re.sub(click_pattern, replace_path, diagram)
 
 
+def get_diagram_cache_path(owner: str, repo: str, repo_type: str) -> str:
+    filename = f"{owner}_{repo}_{repo_type}_diagram_cache.json"
+    return os.path.join(DIAGRAM_CACHE_DIR, filename)
+
+
+async def read_diagram_cache_data(
+    owner: str, repo: str, repo_type: str
+) -> Optional[str]:
+    cache_path = get_diagram_cache_path(owner, repo, repo_type)
+    if os.path.exists(cache_path):
+        try:
+            with open(cache_path, "r", encoding="utf-8") as file:
+                return file.read()
+        except Exception as e:
+            logger.error(f"Error reading diagram cache data: {e}")
+            return None
+    return None
+
+
+async def write_diagram_cache_data(
+    owner: str, repo: str, repo_type: str, data: str
+) -> bool:
+    cache_path = get_diagram_cache_path(owner, repo, repo_type)
+    try:
+        with open(cache_path, "w", encoding="utf-8") as file:
+            file.write(data)
+        return True
+    except Exception as e:
+        logger.error(f"Error writing diagram cache data: {e}")
+        return False
+
+
+@router.get("/cached")
+async def get_cached_diagram(owner: str, repo: str):
+    logger.info(f"Getting cached diagram for {owner}/{repo}")
+    cached_diagram = await read_diagram_cache_data(owner, repo, "github")
+    if cached_diagram:
+        return {"diagram": cached_diagram}
+    else:
+        return None
+
+
+@router.post("/cached")
+async def cache_diagram(request: DiagramCacheData):
+    logger.info(f"Caching diagram for {request.owner}/{request.repo}")
+    success = await write_diagram_cache_data(
+        request.owner, request.repo, "github", request.diagram
+    )
+    if success:
+        return {"message": "Diagram cached successfully."}
+    else:
+        return {"message": "Failed to cache diagram."}
+
+
 @router.post("/generate")
 async def generate_diagram(request: DiagramRequest):
     try:
@@ -59,9 +118,9 @@ async def generate_diagram(request: DiagramRequest):
 
                 # Send initial message
                 yield f"data: {json.dumps({'status': 'started', 'message': 'Generating diagram...'})}\n\n"
-
+                await asyncio.sleep(0.1)
                 # 1. Get explanation
-                yield f"data: {json.dumps({'status': 'generating_explanation', 'message': 'Generating explanation...'})}\n\n"
+                yield f"data: {json.dumps({'status': 'explanation', 'message': 'Generating explanation...'})}\n\n"
                 explanation = ""
                 async for chunk in gemini_service.generate(
                     system_prompt=SYSTEM_SECOND_PROMPT,
@@ -71,17 +130,19 @@ async def generate_diagram(request: DiagramRequest):
                     yield f"data: {json.dumps({'status': 'explanation_chunk', 'chunk': chunk})}\n\n"
 
                 # 2. Get component mapping
-                yield f"data: {json.dumps({'status': 'generating_component_mapping', 'message': 'Generating component mapping...'})}\n\n"
+                yield f"data: {json.dumps({'status': 'mapping', 'message': 'Generating component mapping...'})}\n\n"
+                await asyncio.sleep(0.1)
                 component_mapping = ""
                 async for chunk in gemini_service.generate(
                     system_prompt=SYSTEM_SECOND_PROMPT,
                     data={"explanation": explanation, "file_tree": file_tree},
                 ):
                     component_mapping += chunk
-                    yield f"data: {json.dumps({'status': 'component_mapping_chunk', 'chunk': chunk})}\n\n"
+                    yield f"data: {json.dumps({'status': 'mapping_chunk', 'chunk': chunk})}\n\n"
 
                 # 3. Generate diagram
-                yield f"data: {json.dumps({'status': 'generating_diagram', 'message': 'Generating diagram...'})}\n\n"
+                yield f"data: {json.dumps({'status': 'diagram', 'message': 'Generating diagram...'})}\n\n"
+                await asyncio.sleep(0.1)
                 diagram = ""
                 async for chunk in gemini_service.generate(
                     system_prompt=SYSTEM_THIRD_PROMPT,
@@ -97,10 +158,12 @@ async def generate_diagram(request: DiagramRequest):
                 processed_diagram = process_click_events(
                     diagram, request.owner, request.repo, default_branch
                 )
-
+                logger.info(type(processed_diagram))
+                logger.info(f"Processed diagram: {processed_diagram}")
                 yield f"data: {json.dumps({'status': 'complete', 'diagram': processed_diagram, 'explanation': explanation, 'mapping': component_mapping, })}\n\n"
 
             except Exception as e:
+                traceback.print_exc()
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
         return StreamingResponse(

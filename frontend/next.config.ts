@@ -5,6 +5,7 @@ const TARGET_SERVER_BASE_URL =
 
 const nextConfig: NextConfig = {
   /* config options here */
+  reactStrictMode: false,
   async rewrites() {
     return [
       {
@@ -30,6 +31,14 @@ const nextConfig: NextConfig = {
       {
         source: '/api/chat/stream',
         destination: `${TARGET_SERVER_BASE_URL}/chat/completions/stream`,
+      },
+      {
+        source: '/api/diagram/generate',
+        destination: `${TARGET_SERVER_BASE_URL}/api/diagram/generate`,
+      },
+      {
+        source: '/api/diagram/cached/:path*',
+        destination: `${TARGET_SERVER_BASE_URL}/api/diagram/cached/:path*`,
       },
     ];
   },

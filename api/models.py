@@ -140,3 +140,9 @@ class DiagramRequest(BaseModel):
     owner: str
     repo: str
     token: Optional[str] = None
+
+
+class DiagramCacheData(BaseModel):
+    owner: str
+    repo: str
+    diagram: str
