@@ -329,7 +329,7 @@ IMPORTANT:
                 "type": self.repo_info["type"],
                 "messages": [{"role": "user", "content": content_message}],
                 "repo_url": self.repo_url,
-                "model": "gemini-2.5-flash",
+                "model": "gemini-2.5-pro",
             }
             ws_base_url = TARGET_SERVER_BASE_URL.replace("http", "ws", 1)
             ws_url = f"{ws_base_url}/ws/chat"
@@ -686,7 +686,7 @@ Remember:
                 "repo_url": repo_url,
                 "type": self.repo_info["type"],
                 "messages": [{"role": "user", "content": prompt_content}],
-                "model": "gemini-2.5-flash",
+                "model": "gemini-2.5-pro",
             }
             ws_base_url = TARGET_SERVER_BASE_URL.replace("http", "ws", 1)
             ws_url = f"{ws_base_url}/ws/chat"

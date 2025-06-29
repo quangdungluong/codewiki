@@ -11,7 +11,7 @@ from utils.logger import logger
 class GeminiService:
     def __init__(self):
         self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-        self.model = "gemini-2.5-flash"
+        self.model = "gemini-2.5-pro"
 
     async def generate(
         self, system_prompt: str, data: dict
