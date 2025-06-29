@@ -28,6 +28,7 @@ import {
   FaHome,
   FaSync,
   FaTimes,
+  FaProjectDiagram,
 } from 'react-icons/fa';
 
 interface WikiSection {
@@ -336,6 +337,17 @@ export default function RepoWikiPage() {
               className='text-[var(--accent-primary)] hover:text-[var(--highlight)] flex items-center gap-1.5 transition-colors border-b border-[var(--border-color)] hover:border-[var(--accent-primary)] pb-0.5'
             >
               <FaHome /> {messages.repoPage?.home || 'Home'}
+            </Link>
+          </div>
+          <div className='flex items-center gap-4'>
+            <Link
+              href={`/${effectiveRepoInfo.owner}/${effectiveRepoInfo.repo}/diagram`}
+            >
+              {/* <button className='btn-japanese flex items-center text-xs px-3 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed'> */}
+              <button className='btn-japanese flex items-center text-sm px-3 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed'>
+                <FaProjectDiagram className='mr-2' />
+                {'Diagram'}
+              </button>
             </Link>
           </div>
         </div>
