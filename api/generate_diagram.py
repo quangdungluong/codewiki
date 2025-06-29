@@ -49,8 +49,34 @@ def process_click_events(diagram: str, owner: str, repo: str, branch: str) -> st
     return re.sub(click_pattern, replace_path, diagram)
 
 
+def handle_mermaid_validation(diagram: str) -> str:
+    # If the diagram is a JSON object, convert it to a string
+    if diagram.startswith("{"):
+        diagram = json.loads(diagram)
+        diagram = list(diagram.values())[0]
+    try:
+        diagram = json.loads(diagram)
+    except json.JSONDecodeError:
+        pass
+    # If the diagram include invalid mermaid syntax
+    # Case 1: <--, [--., .->]
+    diagram = (
+        diagram.replace("<--", "-->")
+        .replace("-->>", "-->")
+        .replace("--.", "-->|")
+        .replace(".->", "|")
+    )
+    # Case 2: Replace lines starting with optional whitespace followed by a single %
+    diagram = re.sub(r"(^\s*)%(?!%)", r"\1%%", diagram, flags=re.MULTILINE)
+    # Case 3: Replace \" inside node labels with single quotes or remove the escape
+    diagram = re.sub(r'\[\s*"([^"]*?)\\\"([^"]*?)"\s*\]', r'["\1\'\2"]', diagram)
+    # Case 4: Remove direction TD
+    diagram = re.sub(r"direction TD", "", diagram)
+    return diagram
+
+
 def get_diagram_cache_path(owner: str, repo: str, repo_type: str) -> str:
-    filename = f"{owner}_{repo}_{repo_type}_diagram_cache.json"
+    filename = f"{owner}_{repo}_{repo_type}_diagram_cache.txt"
     return os.path.join(DIAGRAM_CACHE_DIR, filename)
 
 
@@ -119,8 +145,11 @@ async def generate_diagram(request: DiagramRequest):
                 # Send initial message
                 yield f"data: {json.dumps({'status': 'started', 'message': 'Generating diagram...'})}\n\n"
                 await asyncio.sleep(0.1)
+
                 # 1. Get explanation
                 yield f"data: {json.dumps({'status': 'explanation', 'message': 'Generating explanation...'})}\n\n"
+                await asyncio.sleep(0.1)
+
                 explanation = ""
                 async for chunk in gemini_service.generate(
                     system_prompt=SYSTEM_SECOND_PROMPT,
@@ -158,6 +187,7 @@ async def generate_diagram(request: DiagramRequest):
                 processed_diagram = process_click_events(
                     diagram, request.owner, request.repo, default_branch
                 )
+                processed_diagram = handle_mermaid_validation(processed_diagram)
                 logger.info(type(processed_diagram))
                 logger.info(f"Processed diagram: {processed_diagram}")
                 yield f"data: {json.dumps({'status': 'complete', 'diagram': processed_diagram, 'explanation': explanation, 'mapping': component_mapping, })}\n\n"
@@ -169,7 +199,11 @@ async def generate_diagram(request: DiagramRequest):
         return StreamingResponse(
             generate_diagram_stream(),
             media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+            headers={
+                "X-Accel-Buffering": "no",  # Hint to Nginx
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+            },
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

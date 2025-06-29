@@ -56,13 +56,16 @@ export function useDiagram(owner: string, repo: string) {
           repo,
           githubPat,
         };
-        const response = await fetch('/api/diagram/generate', {
+
+        const baseUrl = process.env.SERVER_BASE_URL || 'http://localhost:8001';
+        const response = await fetch(`${baseUrl}/api/diagram/generate`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(requestBody),
         });
+
         if (!response.ok) {
           throw new Error('Failed to generate diagram');
         }
@@ -70,7 +73,7 @@ export function useDiagram(owner: string, repo: string) {
         if (!reader) {
           throw new Error('Failed to get reader');
         }
-        const decoder = new TextDecoder();
+
         let explanation = '';
         let mapping = '';
         let diagram = '';
@@ -81,7 +84,7 @@ export function useDiagram(owner: string, repo: string) {
               const { done, value } = await reader.read();
               if (done) break;
 
-              const chunk = decoder.decode(value, { stream: true });
+              const chunk = new TextDecoder().decode(value);
               const lines = chunk.split('\n');
               for (const line of lines) {
                 if (line.startsWith('data:')) {
@@ -185,6 +188,7 @@ export function useDiagram(owner: string, repo: string) {
             reader.releaseLock();
           }
         };
+
         await processStream();
       } catch (error) {
         setState({

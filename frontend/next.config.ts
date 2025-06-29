@@ -33,10 +33,6 @@ const nextConfig: NextConfig = {
         destination: `${TARGET_SERVER_BASE_URL}/chat/completions/stream`,
       },
       {
-        source: '/api/diagram/generate',
-        destination: `${TARGET_SERVER_BASE_URL}/api/diagram/generate`,
-      },
-      {
         source: '/api/diagram/cached/:path*',
         destination: `${TARGET_SERVER_BASE_URL}/api/diagram/cached/:path*`,
       },

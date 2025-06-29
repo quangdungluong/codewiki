@@ -6,7 +6,6 @@ const messages = [
   'Checking if its cached...',
   'Generating diagram...',
   'Analyzing repository...',
-  'Prompting o3-mini...',
   'Inspecting file paths...',
   'Finding component relationships...',
   'Linking components to code...',
@@ -15,11 +14,6 @@ const messages = [
   'Prompt engineers needed -> Check out the GitHub',
   'Shoutout to GitIngest for inspiration',
   'I need to find a way to make this faster...',
-  'Finding the meaning of life...',
-  "I'm tired...",
-  'Please just give me the diagram...',
-  '...NOW!',
-  'guess not...',
 ];
 
 interface LoadingProps {
