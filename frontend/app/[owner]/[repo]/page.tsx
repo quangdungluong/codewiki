@@ -205,7 +205,6 @@ export default function RepoWikiPage() {
         try {
           const res = await fetch(`/api/wiki/status/${id}`);
           const data = await res.json();
-          console.log('Wiki generation status:', data);
           setLoadingMessage(data.message);
           if (data.status === 'success' || data.error) {
             if (intervalRef.current) {
@@ -216,7 +215,6 @@ export default function RepoWikiPage() {
             setLoadingMessage(undefined);
           } else if (data.status === 'processing' && data.result) {
             setWikiStructure(data.result.wiki_structure);
-            console.log('Progress:', new Set(data.progress));
             setPagesInProgress(new Set(data.progress));
           }
         } catch (err) {
@@ -278,7 +276,6 @@ export default function RepoWikiPage() {
               cachedWiki.generated_pages &&
               Object.keys(cachedWiki.generated_pages).length > 0
             ) {
-              console.log('Found cached wiki data in server.', cachedWiki);
               const cachedStructure = {
                 ...cachedWiki.wiki_structure,
                 sections: cachedWiki.wiki_structure.sections || [],
