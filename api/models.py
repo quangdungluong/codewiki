@@ -134,3 +134,15 @@ class WikiTaskStatus(BaseModel):
     progress: Optional[set[str]] = None
     error: Optional[str] = None
     result: Optional[WikiCacheData] = None
+
+
+class DiagramRequest(BaseModel):
+    owner: str
+    repo: str
+    token: Optional[str] = None
+
+
+class DiagramCacheData(BaseModel):
+    owner: str
+    repo: str
+    diagram: str
