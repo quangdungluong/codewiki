@@ -588,7 +588,7 @@ IMPORTANT:
                 ),
                 generated_pages={},
             ),
-            self.pages_in_progress,
+            list(self.pages_in_progress),
         )
 
         page_id = page_data.id
