@@ -1,4 +1,17 @@
 {
-    "common": {},
-    "loading": {}
+  "common": {
+    "appName": "CodeWiki",
+    "tagline": "AI-powered code documentation"
+  },
+  "loading": {},
+  "projects": {
+    "existingProjects": "Existing Projects",
+    "browseExisting": "Browse Existing Projects"
+  },
+  "nav": {
+    "wikiProjects": "CodeWiki Projects"
+  },
+  "footer": {
+    "copyright": "Copyright © 2025 CodeWiki. All rights reserved."
+  }
 }
