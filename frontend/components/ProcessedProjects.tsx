@@ -10,7 +10,7 @@ interface ProcessedProject {
   repo: string;
   name: string;
   repo_type: string;
-  submittedAt: number;
+  submitted_at: number;
   language: string;
 }
 
@@ -249,7 +249,7 @@ export default function ProcessedProjects({
                   </div>
                   <p className='text-xs text-[var(--muted)]'>
                     {t('processedOn')}{' '}
-                    {new Date(project.submittedAt).toLocaleDateString()}
+                    {new Date(project.submitted_at).toLocaleDateString()}
                   </p>
                 </Link>
               </div>
@@ -276,7 +276,7 @@ export default function ProcessedProjects({
                     </h3>
                     <p className='text-xs text-[var(--muted)] mt-1'>
                       {t('processedOn')}{' '}
-                      {new Date(project.submittedAt).toLocaleDateString()} •{' '}
+                      {new Date(project.submitted_at).toLocaleDateString()} •{' '}
                       {project.repo_type} • {project.language}
                     </p>
                   </div>
