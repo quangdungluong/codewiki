@@ -24,7 +24,7 @@ def update_task_status(
         {
             "status": status,
             "message": message,
-            "result": result,
+            "result": result.model_dump() if result is not None else result,
             "progress": progress,
         },
     )
