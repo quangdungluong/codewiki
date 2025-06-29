@@ -286,6 +286,12 @@ export default function RepoWikiPage() {
 
               setWikiStructure(cachedStructure);
               setGeneratedPages(cachedWiki.generated_pages);
+              setCurrentPageId(
+                cachedWiki.generated_pages &&
+                  Object.keys(cachedWiki.generated_pages).length > 0
+                  ? Object.keys(cachedWiki.generated_pages)[0]
+                  : undefined
+              );
               setIsLoading(false);
               setLoadingMessage(undefined);
               return;
