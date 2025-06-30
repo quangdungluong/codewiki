@@ -191,7 +191,7 @@ This file contains...
         await websocket.close()
 
     except WebSocketDisconnect:
-        logger.info("WebSocket disconnected")
+        logger.error("WebSocket disconnected")
     except Exception as e:
         traceback.print_exc()
         logger.error(f"Error in WebSocket communication: {e}")

@@ -208,9 +208,24 @@ export default function RepoWikiPage() {
           setLoadingMessage(data.message);
           if (data.status === 'success' || data.error) {
             if (intervalRef.current) {
-              console.log('Clearing interval');
               clearInterval(intervalRef.current);
+              intervalRef.current = null;
             }
+
+            const wiki = data.result;
+            const wikiStructure = {
+              ...wiki.wiki_structure,
+              sections: wiki.wiki_structure.sections || [],
+              rootSections: wiki.wiki_structure.rootSections || [],
+            };
+            setWikiStructure(wikiStructure);
+            setGeneratedPages(wiki.generated_pages);
+            setCurrentPageId(
+              wiki.generated_pages &&
+                Object.keys(wiki.generated_pages).length > 0
+                ? Object.keys(wiki.generated_pages)[0]
+                : undefined
+            );
             setIsLoading(false);
             setLoadingMessage(undefined);
           } else if (data.status === 'processing' && data.result) {
@@ -221,6 +236,7 @@ export default function RepoWikiPage() {
           console.error('Error polling status:', err);
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
+            intervalRef.current = null;
           }
         }
       };

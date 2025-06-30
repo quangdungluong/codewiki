@@ -13,7 +13,9 @@ import httpx
 import requests
 import websockets
 
-from api.models import WikiCacheData, WikiStructureModel
+from api.models import WikiCacheData
+from api.models import WikiPage as WikiPageModel
+from api.models import WikiStructureModel
 from utils.constants import TARGET_SERVER_BASE_URL
 from utils.logger import logger
 from utils.models import WikiPage, WikiSection, WikiStructure
@@ -36,7 +38,6 @@ class RepositoryStructureFetcher:
         self.request_in_progress = False
         self.wiki_structure = None
         self.current_page_id = None
-        self.generated_pages = {}
         self.pages_in_progress = set()
         self.error = None
         self.is_loading = False
@@ -74,7 +75,6 @@ class RepositoryStructureFetcher:
         # Reset previous state
         self.wiki_structure = None
         self.current_page_id = None
-        self.generated_pages = {}
         self.pages_in_progress = set()
         self.error = None
 
@@ -528,7 +528,21 @@ IMPORTANT:
                 await asyncio.gather(*worker_tasks, return_exceptions=True)
 
                 logger.info(
-                    f"Content generation completed for {len(self.generated_pages)} pages."
+                    f"Content generation completed for {len(parsed_pages_list)} pages."
+                )
+                update_task_status(
+                    task_id,
+                    "success",
+                    "Content generation completed.",
+                    WikiCacheData(
+                        wiki_structure=WikiStructureModel.model_validate(
+                            asdict(self.wiki_structure)
+                        ),
+                        generated_pages={
+                            page.id: WikiPageModel.model_validate(asdict(page))
+                            for page in parsed_pages_list
+                        },
+                    ),
                 )
 
             data_to_cache = {

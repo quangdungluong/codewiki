@@ -174,13 +174,6 @@ const WikiTreeView: React.FC<WikiTreeViewProps> = ({
     );
   }
 
-  // Log information about the sections for debugging
-  console.log(
-    'WikiTreeView: Rendering tree view with sections:',
-    wikiStructure.sections
-  );
-  console.log('WikiTreeView: Root sections:', wikiStructure.rootSections);
-
   return (
     <div className='space-y-1'>
       {wikiStructure.rootSections.map((sectionId) => {
