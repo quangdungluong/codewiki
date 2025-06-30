@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import json
 import re
 import traceback
 import urllib.parse
@@ -11,7 +10,6 @@ from xml.etree import ElementTree as ET
 
 import httpx
 import requests
-import websockets
 
 from api.models import WikiCacheData
 from api.models import WikiPage as WikiPageModel
@@ -331,34 +329,26 @@ IMPORTANT:
                 "repo_url": self.repo_url,
                 "model": "gemini-2.5-pro",
             }
-            ws_base_url = TARGET_SERVER_BASE_URL.replace("http", "ws", 1)
-            ws_url = f"{ws_base_url}/ws/chat"
             http_api_url = f"{TARGET_SERVER_BASE_URL}/api/chat/stream"
 
-            try:
-                # Try websocket connection first
-                async with await asyncio.wait_for(
-                    websockets.connect(ws_url), timeout=5
-                ) as ws:
-                    logger.info("WebSocket connection established for wiki structure")
-                    await ws.send(json.dumps(request_body))
-
-                    messages_parts = []
-                    async for message in ws:
-                        messages_parts.append(str(message))
-                    response_text = "".join(messages_parts)
-                    logger.info("Received response from WebSocket")
-            except Exception as e:
-                logger.error(f"WebSocket error: {e}, falling back to HTTP API")
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
+            async with httpx.AsyncClient() as client:
+                try:
+                    response = client.stream(
+                        "POST",
                         http_api_url,
                         json=request_body,
                         headers={"Content-Type": "application/json"},
                         timeout=90,
                     )
-                    response.raise_for_status()
-                    response_text = response.text
+                    async with response as response_stream:
+                        response_stream.raise_for_status()
+                        response_text = ""
+                        async for chunk in response_stream.aiter_text():
+                            if chunk:
+                                response_text += chunk
+                except Exception as e:
+                    traceback.print_exc()
+                    raise e
 
             # Clean up markdown delimiters
             response_text = re.sub(
@@ -512,7 +502,7 @@ IMPORTANT:
                     await page_queue.put(page_to_generate)
 
                 worker_tasks = []
-                for i in range(1):
+                for i in range(3):
                     worker_task = asyncio.create_task(
                         self._generate_page_content_for_structure(
                             page_queue, update_task_status, task_id
@@ -702,36 +692,27 @@ Remember:
                 "messages": [{"role": "user", "content": prompt_content}],
                 "model": "gemini-2.5-pro",
             }
-            ws_base_url = TARGET_SERVER_BASE_URL.replace("http", "ws", 1)
-            ws_url = f"{ws_base_url}/ws/chat"
             http_api_url = f"{TARGET_SERVER_BASE_URL}/api/chat/stream"
 
-            try:
-                # Try websocket connection first
-                async with await asyncio.wait_for(
-                    websockets.connect(ws_url), timeout=5
-                ) as ws:
-                    logger.info(
-                        f"WebSocket connection established for page: {page_title}"
-                    )
-                    await ws.send(json.dumps(request_body))
-
-                    messages_parts = []
-                    async for message in ws:
-                        messages_parts.append(str(message))
-                    response_text = "".join(messages_parts)
-                    logger.info("Received response from WebSocket")
-            except Exception as e:
-                logger.error(f"WebSocket error: {e}, falling back to HTTP API")
-                async with httpx.AsyncClient() as client:
-                    response = await client.post(
+            async with httpx.AsyncClient() as client:
+                try:
+                    logger.info(f"Generating content for page {page_id} - {page_title}")
+                    response = client.stream(
+                        "POST",
                         http_api_url,
                         json=request_body,
                         headers={"Content-Type": "application/json"},
                         timeout=90,
                     )
-                    response.raise_for_status()
-                    response_text = response.text
+                    async with response as response_stream:
+                        response_stream.raise_for_status()
+                        response_text = ""
+                        async for chunk in response_stream.aiter_text():
+                            if chunk:
+                                response_text += chunk
+                except Exception as e:
+                    traceback.print_exc()
+                    raise e
 
             cleaned_content = response_text.strip()
             logger.info(
